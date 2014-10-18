@@ -5,9 +5,10 @@ from datetime import datetime
 from math import exp, log, sqrt
 from sklearn.linear_model import SGDClassifier
 import numpy as np
- 
-D = 2 ** 10  # number of weights use for learning
+import pandas as pd
+import matplotlib.pyplot as plt
 
+D = 2 ** 10  # number of weights use for learning
 def logloss(p, y):
     p = max(min(p, 1. - 10e-12), 10e-12)
     #print p
@@ -79,60 +80,87 @@ for t, row in enumerate(reader):
     w, n = update_w(w, n, x, p, y)
 """
 
-def format_x(csv_row, D):
-    #x = [0]  # 0 is the index of the bias term
+
+
+
+
+
+
+
+
+from sklearn.feature_extraction import FeatureHasher
+import csv
+from datetime import datetime
+from math import exp, log, sqrt
+from sklearn.linear_model import SGDClassifier
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def logloss(p, y):
+    p = max(min(p, 1. - 10e-12), 10e-12)
+    return -log(p) if y == 1. else -log(1. - p)
+
+def hash_x(csv_row, hasher):
+    """
+    x = {}
+    for count, value in enumerate(csv_row):
+        x['%s' % count] = value
+    """
     x = []
     for count, value in enumerate(csv_row):
-        index = int(value + str(count), 16) % D  # weakest hash ever ;)
-        x.append(index)
-    return x  # x contains indices of features that have a value of 1
+        if value:
+            x.append('F%s:%s' % (count,value))
+    
+    x = hasher.transform([x])
+    return x 
 
-
-clf = SGDClassifier(loss='log', learning_rate='invscaling')
-clf.partial_fit(np.zeros(D), np.asarray([0.,]), classes=np.asarray([0.,1.]))
-blank_row = np.zeros(D)
 loss = 0.
 accuracy = 0.
+clf = SGDClassifier(loss='log', alpha=0.001)
+hasher = FeatureHasher(input_type='string', n_features=(2 ** 10))
+chart_data = np.empty((0,3), float)
+batch_size = 10
 for t, row in enumerate(reader):
+    
+
     y = 1. if row[0] == '1' else 0.
 
-    del row[0]  # can't let the model peek the answer
+    del row[0]
     
     # main training procedure
     # step 1, get the hashed features
-    x = format_x(row, D)
-
-    #SGDClassifier
-    # add categorial values
     
-    long_row = blank_row
-    long_row[x] = 1.
+    x = hash_x(row, hasher)
     
-    # figure best way to deal with sparce data
+    if t > 1:
+        # estimate liklihood classification is 1
+        p = clf.predict_proba(x)[0][1]
+        loss += logloss(p, y)
+        
+        # estimate classification
+        pred = 1. if p >= 0.5 else 0.
+        if pred == y:
+            accuracy += 1.
 
-    # estimate liklihood classification is 1
-    p = clf.predict_proba(long_row)[0][1]
-    loss += logloss(p, y)
-    
-    # estimate classification
-    pred = 1. if p >= 0.5 else 0.
-    if pred == y:
-        accuracy += 1.
+        if t % 1000 == 0:
+            avg_loss = loss/t
+            avg_accuracy = accuracy/t
+            print('%s\tencountered: %d\tcurrent logloss: %f\tcurrent score: %f' % (datetime.now(), t, avg_loss, avg_accuracy))
+            # track performance
+            chart_data = np.append(chart_data, np.array([[t,avg_loss,avg_accuracy]]), axis=0)
 
-    if t % 100 == 0 and t > 1:
-        print('%s\tencountered: %d\tcurrent logloss: %f\tcurrent score: %f' % (datetime.now(), t, loss/t, accuracy/t))
-        #print clf.coef_
-    
-    # ensure predicted probability is never 1 or 0
+        # add separate out integer features
 
-    # add separate out integer features
-
-
-    # scale integer featuers - rolling average / standard deviations
-    #z = (x - mean) / std_dev
+        # scale integer featuers - rolling average / standard deviations
+        #z = (x - mean) / std_dev
 
 
     # fit model for one row
-    clf.partial_fit(long_row, np.asarray([y]))
-   
-    
+    clf.partial_fit(x, np.asarray([y]), np.asarray([0.,1.]))
+
+# print chart   
+chart_data = pd.DataFrame({ 'Avg Loss': chart_data[:,1],
+                            'Avg Accuracy': chart_data[:,2]}, 
+                            index=chart_data[:,0])   
+
