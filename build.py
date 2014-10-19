@@ -112,36 +112,38 @@ def hash_x(csv_row, hasher):
         if value:
             x.append('F%s:%s' % (count,value))
     
+    hasher = FeatureHasher(input_type='string', n_features=(2 ** 15))
     x = hasher.transform([x])
-    return x 
+    return x
+
+def prediction(p):
+    pred = 1. if p >= 0.5 else 0.
+    return pred 
 
 loss = 0.
 accuracy = 0.
 clf = SGDClassifier(loss='log', alpha=0.001)
-hasher = FeatureHasher(input_type='string', n_features=(2 ** 10))
 chart_data = np.empty((0,3), float)
-batch_size = 10
 for t, row in enumerate(reader):
     
 
     y = 1. if row[0] == '1' else 0.
-
     del row[0]
     
-    # main training procedure
     # step 1, get the hashed features
-    
-    x = hash_x(row, hasher)
+    x = hash_x(row, hasher=None)
     
     if t > 1:
-        # estimate liklihood classification is 1
-        p = clf.predict_proba(x)[0][1]
-        loss += logloss(p, y)
         
+        # estimate liklihood classification is 1
+        prob = clf.predict_proba(x)[0][1]
         # estimate classification
-        pred = 1. if p >= 0.5 else 0.
-        if pred == y:
-            accuracy += 1.
+        pred = prediction(prob)
+        # calc cost function and increment
+        loss += logloss(prob, y)
+        # add one point for correct prediction
+        accuracy += 1. if pred == y else 0.
+            
 
         if t % 1000 == 0:
             avg_loss = loss/t
