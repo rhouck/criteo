@@ -12,6 +12,9 @@ def logloss(p, y):
     return -log(p) if y == 1. else -log(1. - p)
 
 def hash_x(csv_row, hasher):
+    
+    # append sparse matrix with integer values for first 13 features if needed
+
     """
     x = {}
     for count, value in enumerate(csv_row):
