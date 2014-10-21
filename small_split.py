@@ -1,7 +1,7 @@
 '''
 split a file into two randomly, line by line. 
 Usage: small_split.py <input file> <output file 1> <output file 2> [<limit>] [<probability of writing to the first file>] [<random seed>]'
-Example: python small_split.py source/train.txt source/train_small.txt source/test_small.txt 1000 0.9
+Example: python small_split.py source/local/train.txt source/train_small.txt source/local/test_small.txt 10000000 1
 '''
 
 import csv
@@ -44,19 +44,22 @@ writer2 = csv.writer( o2 )
 #writer1.writerow( headers )
 #writer2.writerow( headers )
 
-counter = 0
 
-for line in reader:
+for t, line in enumerate(reader):
 	
-	if counter >= limit:
+	if t >= limit:
 		break
-
+	"""
 	r = random.random()
 	if r > P:
 		writer2.writerow( line )
 	else:
 		writer1.writerow( line )
-	
-	counter += 1
-	if counter % 100000 == 0:
-		print counter
+	"""
+	if t <=1000000:
+		writer1.writerow( line )
+	else:
+		writer2.writerow( line )
+
+	if t % 100000 == 0:
+		print t
